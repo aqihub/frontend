@@ -2,7 +2,6 @@ import React from "react";
 import { useTimeBasedTheme } from "./hooks/useTimeBasedTheme";
 import Dashboard from "./components/Dashboard";
 import { Routes, Route } from 'react-router-dom';
-import Leaderboard from "./components/Leaderboard";
 
 const App = () => {
 	const isDarkMode = useTimeBasedTheme();
@@ -14,7 +13,6 @@ const App = () => {
 		>
 			<Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
       </Routes>
 		</div>
 	);
