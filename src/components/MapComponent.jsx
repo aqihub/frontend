@@ -10,6 +10,7 @@ import {
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
+import { useAccount, useBalance } from 'wagmi';
 
 
 // Add this before the component to fix pointer events
@@ -193,18 +194,7 @@ const getAQIColor = (aqi) => {
   return "bg-[#7e0023]";
 };
 
-// Add this utility function at the top with other utility functions
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Radius of the earth in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c; // Distance in km
-};
+
 
 
 
@@ -256,13 +246,16 @@ const isDataLive = (timestamp) => {
 };
 
 // Update the CustomMarker component to use the red sensor icon
-const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode }) => {
+const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected }) => {
   if (!Array.isArray(sensorData) || sensorData.length === 0) return null;
 
   return (
     <>
       {sensorData.map((sensor, index) => {
         if (!sensor?.gps_lat || !sensor?.gps_lng) return null;
+        
+        const sensorId = `${sensor.gps_lat}-${sensor.gps_lng}`;
+        const isUnlocked = unlockedPopups.has(sensorId);
         
         return (
           <Marker
@@ -330,9 +323,95 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode }) => {
                   </svg>
                   Sensor Data
                 </h3>
-                
-                {/* AQI Display */}
-                {activeLayers.aqi && (
+
+                {/* Token Gating Logic */}
+                {!isUnlocked ? (
+                  <div className="relative">
+                    {/* Blurred Content */}
+                    <div className="filter blur-sm pointer-events-none select-none">
+                      {/* AQI Display */}
+                      {activeLayers.aqi && (
+                        <div className={`px-4 py-3 rounded-lg text-white mb-4 transition-all duration-200 ${getAQIColor(sensor?.aqi)}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium opacity-90">Air Quality Index</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-black/20">
+                              {getAQILabel(sensor?.aqi)}
+                            </span>
+                          </div>
+                          <div className="text-3xl font-bold tracking-tight">
+                            {sensor?.aqi || '0'}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sensor Readings Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 p-3 rounded-lg">
+                          <div className="text-orange-600 dark:text-orange-400 text-sm font-medium">Temperature</div>
+                          <div className="font-bold text-orange-700 dark:text-orange-300 text-lg">••••°C</div>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-lg">
+                          <div className="text-blue-600 dark:text-blue-400 text-sm font-medium">Humidity</div>
+                          <div className="font-bold text-blue-700 dark:text-blue-300 text-lg">••••%</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                      <div className={`text-center p-6 rounded-xl ${
+                        isDarkMode ? 'bg-gray-800/95 border border-gray-700' : 'bg-white/95 border border-gray-200'
+                      } backdrop-blur-sm shadow-xl`}>
+                        <div className="mb-4">
+                          <svg className="w-12 h-12 mx-auto text-yellow-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" 
+                            />
+                          </svg>
+                          <h4 className={`font-semibold text-lg ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            Premium Data
+                          </h4>
+                          <p className={`text-sm ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                          }`}>
+                            Unlock detailed sensor readings
+                          </p>
+                        </div>
+
+                        {isConnected ? (
+                          <button
+                            onClick={() => onUnlockPopup(sensorId)}
+                            className="w-full px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center space-x-2"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" 
+                              />
+                            </svg>
+                            <span>Pay 24 AQI Tokens</span>
+                          </button>
+                        ) : (
+                          <div className="text-center">
+                            <p className={`text-sm mb-3 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              Connect your wallet to unlock
+                            </p>
+                            <div className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 text-sm">
+                              Wallet Required
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Unlocked Content - Full Sensor Data */
+                  <>
+                    {/* AQI Display */}
+                    {activeLayers.aqi && (
                   <div className={`px-4 py-3 rounded-lg text-white mb-4 transition-all duration-200 ${getAQIColor(sensor?.aqi)}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium opacity-90">Air Quality Index</span>
@@ -458,6 +537,8 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode }) => {
                     </div>
                   </div>
                 )}
+                  </>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -538,6 +619,38 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
   const [locationError, setLocationError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sensorData, setSensorData] = useState(null);
+  const [unlockedPopups, setUnlockedPopups] = useState(new Set());
+  
+  // Wallet hooks
+  const { address, isConnected } = useAccount();
+
+  // Function to handle token payment for unlocking popup
+  const handleUnlockPopup = async (sensorId) => {
+    if (!isConnected) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    // For demo purposes, we'll simulate the payment
+    // In a real implementation, you would:
+    // 1. Check if user has enough AQI tokens
+    // 2. Execute the token transfer transaction
+    // 3. Wait for confirmation
+    // 4. Then unlock the popup
+
+    try {
+      // Simulate payment processing
+      const confirmed = window.confirm('Pay 24 AQI tokens to unlock detailed sensor data?');
+      if (confirmed) {
+        // Add to unlocked popups
+        setUnlockedPopups(prev => new Set([...prev, sensorId]));
+        alert('Payment successful! Sensor data unlocked.');
+      }
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Payment failed. Please try again.');
+    }
+  };
 
   // Update the location handling useEffect
   useEffect(() => {
@@ -756,6 +869,9 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
                 activeLayers={activeLayers} 
                 sensorData={sensorData}
                 isDarkMode={isDarkMode}
+                unlockedPopups={unlockedPopups}
+                onUnlockPopup={handleUnlockPopup}
+                isConnected={isConnected}
               />
             </>
           )}
