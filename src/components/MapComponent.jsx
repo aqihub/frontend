@@ -247,7 +247,7 @@ const isDataLive = (timestamp) => {
 };
 
 // Update the CustomMarker component to use the red sensor icon
-const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected, mintingPopup, isPending, isConfirming, approvalStep, tokenBalance, tokenAllowance }) => {
+const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected, mintingPopup, isPending, isConfirming, approvalStep, tokenBalance, tokenAllowance, ownedNFTs }) => {
   if (!Array.isArray(sensorData) || sensorData.length === 0) return null;
 
   return (
@@ -264,6 +264,7 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
         // Check if user has enough tokens and approval status
         const hasEnoughTokens = tokenBalance && BigInt(tokenBalance) >= BigInt(MINT_PRICE || '0');
         const hasApproval = tokenAllowance && BigInt(tokenAllowance) >= BigInt(MINT_PRICE || '0');
+        const ownsNFT = ownedNFTs && ownedNFTs.has(sensor.document_id);
         
         return (
           <Marker
@@ -324,13 +325,25 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Sensor Data
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Sensor Data
+                  </h3>
+                  
+                  {/* Ownership indicator */}
+                  {ownsNFT && (
+                    <div className="flex items-center space-x-1 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30">
+                      <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400">Owned</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Token Gating Logic */}
                 {!isUnlocked ? (
@@ -390,65 +403,91 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
 
                         {isConnected ? (
                           <div className="space-y-3">
-                            {/* Token Balance Display */}
-                            {tokenBalance && (
-                              <div className={`text-center text-sm ${
-                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                            {ownsNFT ? (
+                              /* Already owns NFT - show ownership message */
+                              <div className={`text-center p-4 rounded-lg ${
+                                isDarkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'
                               }`}>
-                                Balance: {(Number(tokenBalance) / 1e18).toFixed(2)} AQI
-                              </div>
-                            )}
-                            
-                            <button
-                              onClick={() => onUnlockPopup(sensorId, sensor)}
-                              disabled={isTransactionPending || !hasEnoughTokens}
-                              className={`w-full px-4 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 ${
-                                isTransactionPending || !hasEnoughTokens
-                                  ? 'bg-gray-400 cursor-not-allowed' 
-                                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
-                              } text-white`}
-                            >
-                              {!hasEnoughTokens ? (
-                                <>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
-                                    />
+                                <div className="flex items-center justify-center mb-2">
+                                  <svg className="w-6 h-6 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
-                                  <span>Insufficient AQI Tokens</span>
-                                </>
-                              ) : isTransactionPending ? (
-                                <>
-                                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  <span>
-                                    {currentStep === 'approving' && isPending ? 'Approve Tokens...' :
-                                     currentStep === 'approving' && isConfirming ? 'Approving...' :
-                                     currentStep === 'minting' && isPending ? 'Confirm Mint...' :
-                                     currentStep === 'minting' && isConfirming ? 'Minting NFT...' : 'Processing...'}
+                                  <span className={`font-semibold ${
+                                    isDarkMode ? 'text-green-300' : 'text-green-700'
+                                  }`}>
+                                    You own this NFT!
                                   </span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" 
-                                    />
-                                  </svg>
-                                  <span>Pay 69 AQI to Unlock</span>
-                                </>
-                              )}
-                            </button>
-                            
-                            {/* Step indicator */}
-                            {!hasApproval && hasEnoughTokens && (
-                              <div className={`text-xs text-center ${
-                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                              }`}>
-                                Step 1: Approve → Step 2: Mint
+                                </div>
+                                <p className={`text-sm ${
+                                  isDarkMode ? 'text-green-400' : 'text-green-600'
+                                }`}>
+                                  This sensor data is permanently unlocked for you.
+                                </p>
                               </div>
+                            ) : (
+                              /* Doesn't own NFT - show purchase option */
+                              <>
+                                {/* Token Balance Display */}
+                                {tokenBalance && (
+                                  <div className={`text-center text-sm ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }`}>
+                                    Balance: {(Number(tokenBalance) / 1e18).toFixed(2)} AQI
+                                  </div>
+                                )}
+                                
+                                <button
+                                  onClick={() => onUnlockPopup(sensorId, sensor)}
+                                  disabled={isTransactionPending || !hasEnoughTokens}
+                                  className={`w-full px-4 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 ${
+                                    isTransactionPending || !hasEnoughTokens
+                                      ? 'bg-gray-400 cursor-not-allowed' 
+                                      : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
+                                  } text-white`}
+                                >
+                                  {!hasEnoughTokens ? (
+                                    <>
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                                        />
+                                      </svg>
+                                      <span>Insufficient AQI Tokens</span>
+                                    </>
+                                  ) : isTransactionPending ? (
+                                    <>
+                                      <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                      <span>
+                                        {currentStep === 'approving' && isPending ? 'Approve Tokens...' :
+                                         currentStep === 'approving' && isConfirming ? 'Approving...' :
+                                         currentStep === 'minting' && isPending ? 'Confirm Mint...' :
+                                         currentStep === 'minting' && isConfirming ? 'Minting NFT...' : 'Processing...'}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" 
+                                        />
+                                      </svg>
+                                      <span>Pay 69 AQI to Unlock</span>
+                                    </>
+                                  )}
+                                </button>
+                                
+                                {/* Step indicator */}
+                                {!hasApproval && hasEnoughTokens && (
+                                  <div className={`text-xs text-center ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    Step 1: Approve → Step 2: Mint
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         ) : (
@@ -681,6 +720,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
   const [unlockedPopups, setUnlockedPopups] = useState(new Set());
   const [mintingPopup, setMintingPopup] = useState(null);
   const [approvalStep, setApprovalStep] = useState({}); // Track approval step for each popup
+  const [ownedNFTs, setOwnedNFTs] = useState(new Set()); // Track NFTs owned by user
   
   // Wallet hooks
   const { address, isConnected } = useAccount();
@@ -770,6 +810,70 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
     });
   };
 
+  // Function to check NFT ownership for sensor data
+  const checkNFTOwnership = async (sensorDataArray) => {
+    if (!address || !sensorDataArray) return;
+
+    try {
+      const ownedDocuments = new Set();
+      
+      // For each sensor data, check if user owns an NFT with that document hash
+      for (const sensor of sensorDataArray) {
+        if (sensor.document_id) {
+          try {
+            // We'll use a different approach - check if the user has minted an NFT for this document
+            // Since we can't enumerate NFTs, we'll track ownership through successful minting
+            // For now, we'll implement a basic check using tokenURI if we know token IDs
+            
+            // Alternative approach: Check recent Transfer events or maintain a mapping
+            // For this implementation, we'll rely on the unlockedPopups state and localStorage
+            const storedOwnership = localStorage.getItem(`nft_ownership_${address}`);
+            if (storedOwnership) {
+              const owned = JSON.parse(storedOwnership);
+              if (owned.includes(sensor.document_id)) {
+                ownedDocuments.add(sensor.document_id);
+              }
+            }
+          } catch (error) {
+            console.error('Error checking NFT ownership for document:', sensor.document_id, error);
+          }
+        }
+      }
+      
+      setOwnedNFTs(ownedDocuments);
+      
+      // Auto-unlock popups for owned NFTs
+      const ownedSensorIds = sensorDataArray
+        .filter(sensor => ownedDocuments.has(sensor.document_id))
+        .map(sensor => `${sensor.gps_lat}-${sensor.gps_lng}`);
+      
+      setUnlockedPopups(prev => new Set([...prev, ...ownedSensorIds]));
+      
+    } catch (error) {
+      console.error('Error checking NFT ownership:', error);
+    }
+  };
+
+  // Store NFT ownership when minting is successful
+  const storeNFTOwnership = (documentId) => {
+    if (!address || !documentId) return;
+    
+    try {
+      const storageKey = `nft_ownership_${address}`;
+      const existing = localStorage.getItem(storageKey);
+      const owned = existing ? JSON.parse(existing) : [];
+      
+      if (!owned.includes(documentId)) {
+        owned.push(documentId);
+        localStorage.setItem(storageKey, JSON.stringify(owned));
+      }
+      
+      setOwnedNFTs(prev => new Set([...prev, documentId]));
+    } catch (error) {
+      console.error('Error storing NFT ownership:', error);
+    }
+  };
+
   // Handle transaction confirmation
   useEffect(() => {
     if (isConfirmed && mintingPopup) {
@@ -783,7 +887,12 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
           mintNFT(mintingPopup, currentSensorData);
         }
       } else if (currentStep === 'minting') {
-        // Minting confirmed, unlock popup
+        // Minting confirmed, unlock popup and store ownership
+        const currentSensorData = sensorData?.find(s => `${s.gps_lat}-${s.gps_lng}` === mintingPopup);
+        if (currentSensorData?.document_id) {
+          storeNFTOwnership(currentSensorData.document_id);
+        }
+        
         setUnlockedPopups(prev => new Set([...prev, mintingPopup]));
         setMintingPopup(null);
         setApprovalStep(prev => ({ ...prev, [mintingPopup]: null }));
@@ -797,6 +906,13 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       alert('Transaction failed: ' + (error.message || 'Unknown error'));
     }
   }, [isConfirmed, error, mintingPopup, approvalStep, refetchAllowance]);
+
+  // Check NFT ownership when sensor data loads or address changes
+  useEffect(() => {
+    if (sensorData && address) {
+      checkNFTOwnership(sensorData);
+    }
+  }, [sensorData, address]);
 
   // Update the location handling useEffect
   useEffect(() => {
@@ -1028,6 +1144,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
                 approvalStep={approvalStep}
                 tokenBalance={tokenBalance}
                 tokenAllowance={tokenAllowance}
+                ownedNFTs={ownedNFTs}
               />
             </>
           )}
