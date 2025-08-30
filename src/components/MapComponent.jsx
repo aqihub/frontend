@@ -10,7 +10,8 @@ import {
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-import { useAccount, useBalance } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI, AQI_TOKEN_ADDRESS, AQI_TOKEN_ABI, MINT_PRICE } from '../config/contract';
 
 
 // Add this before the component to fix pointer events
@@ -246,7 +247,7 @@ const isDataLive = (timestamp) => {
 };
 
 // Update the CustomMarker component to use the red sensor icon
-const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected }) => {
+const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected, mintingPopup, isPending, isConfirming, approvalStep, tokenBalance, tokenAllowance }) => {
   if (!Array.isArray(sensorData) || sensorData.length === 0) return null;
 
   return (
@@ -256,6 +257,13 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
         
         const sensorId = `${sensor.gps_lat}-${sensor.gps_lng}`;
         const isUnlocked = unlockedPopups.has(sensorId);
+        const isMinting = mintingPopup === sensorId;
+        const currentStep = approvalStep[sensorId];
+        const isTransactionPending = isMinting && (isPending || isConfirming);
+        
+        // Check if user has enough tokens and approval status
+        const hasEnoughTokens = tokenBalance && BigInt(tokenBalance) >= BigInt(MINT_PRICE || '0');
+        const hasApproval = tokenAllowance && BigInt(tokenAllowance) >= BigInt(MINT_PRICE || '0');
         
         return (
           <Marker
@@ -381,17 +389,68 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
                         </div>
 
                         {isConnected ? (
-                          <button
-                            onClick={() => onUnlockPopup(sensorId)}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center space-x-2"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" 
-                              />
-                            </svg>
-                            <span>Pay 24 AQI Tokens</span>
-                          </button>
+                          <div className="space-y-3">
+                            {/* Token Balance Display */}
+                            {tokenBalance && (
+                              <div className={`text-center text-sm ${
+                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                              }`}>
+                                Balance: {(Number(tokenBalance) / 1e18).toFixed(2)} AQI
+                              </div>
+                            )}
+                            
+                            <button
+                              onClick={() => onUnlockPopup(sensorId, sensor)}
+                              disabled={isTransactionPending || !hasEnoughTokens}
+                              className={`w-full px-4 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 ${
+                                isTransactionPending || !hasEnoughTokens
+                                  ? 'bg-gray-400 cursor-not-allowed' 
+                                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
+                              } text-white`}
+                            >
+                              {!hasEnoughTokens ? (
+                                <>
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+                                    />
+                                  </svg>
+                                  <span>Insufficient AQI Tokens</span>
+                                </>
+                              ) : isTransactionPending ? (
+                                <>
+                                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>
+                                    {currentStep === 'approving' && isPending ? 'Approve Tokens...' :
+                                     currentStep === 'approving' && isConfirming ? 'Approving...' :
+                                     currentStep === 'minting' && isPending ? 'Confirm Mint...' :
+                                     currentStep === 'minting' && isConfirming ? 'Minting NFT...' : 'Processing...'}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" 
+                                    />
+                                  </svg>
+                                  <span>Pay 69 AQI to Unlock</span>
+                                </>
+                              )}
+                            </button>
+                            
+                            {/* Step indicator */}
+                            {!hasApproval && hasEnoughTokens && (
+                              <div className={`text-xs text-center ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                              }`}>
+                                Step 1: Approve → Step 2: Mint
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="text-center">
                             <p className={`text-sm mb-3 ${
@@ -620,37 +679,124 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [sensorData, setSensorData] = useState(null);
   const [unlockedPopups, setUnlockedPopups] = useState(new Set());
+  const [mintingPopup, setMintingPopup] = useState(null);
+  const [approvalStep, setApprovalStep] = useState({}); // Track approval step for each popup
   
   // Wallet hooks
   const { address, isConnected } = useAccount();
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
 
-  // Function to handle token payment for unlocking popup
-  const handleUnlockPopup = async (sensorId) => {
+  // Read AQI token balance
+  const { data: tokenBalance } = useReadContract({
+    address: AQI_TOKEN_ADDRESS,
+    abi: AQI_TOKEN_ABI,
+    functionName: 'balanceOf',
+    args: [address],
+    enabled: !!address,
+  });
+
+  // Read token allowance for NFT contract
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
+    address: AQI_TOKEN_ADDRESS,
+    abi: AQI_TOKEN_ABI,
+    functionName: 'allowance',
+    args: [address, NFT_CONTRACT_ADDRESS],
+    enabled: !!address,
+  });
+
+  // Function to handle approval and minting flow
+  const handleUnlockPopup = async (sensorId, sensorData) => {
     if (!isConnected) {
       alert('Please connect your wallet first');
       return;
     }
 
-    // For demo purposes, we'll simulate the payment
-    // In a real implementation, you would:
-    // 1. Check if user has enough AQI tokens
-    // 2. Execute the token transfer transaction
-    // 3. Wait for confirmation
-    // 4. Then unlock the popup
+    // Check if user has enough AQI tokens
+    if (!tokenBalance || BigInt(tokenBalance) < BigInt(MINT_PRICE)) {
+      alert('Insufficient AQI tokens. You need 69 AQI tokens to unlock sensor data.');
+      return;
+    }
 
     try {
-      // Simulate payment processing
-      const confirmed = window.confirm('Pay 24 AQI tokens to unlock detailed sensor data?');
-      if (confirmed) {
-        // Add to unlocked popups
-        setUnlockedPopups(prev => new Set([...prev, sensorId]));
-        alert('Payment successful! Sensor data unlocked.');
+      setMintingPopup(sensorId);
+      
+      // Check if tokens are already approved
+      const hasApproval = tokenAllowance && BigInt(tokenAllowance) >= BigInt(MINT_PRICE);
+      
+      if (!hasApproval) {
+        // Step 1: Approve tokens
+        setApprovalStep(prev => ({ ...prev, [sensorId]: 'approving' }));
+        
+        writeContract({
+          address: AQI_TOKEN_ADDRESS,
+          abi: AQI_TOKEN_ABI,
+          functionName: 'approve',
+          args: [NFT_CONTRACT_ADDRESS, MINT_PRICE],
+        });
+      } else {
+        // Step 2: Mint NFT (tokens already approved)
+        await mintNFT(sensorId, sensorData);
       }
+
     } catch (error) {
-      console.error('Payment failed:', error);
-      alert('Payment failed. Please try again.');
+      console.error('Transaction failed:', error);
+      setMintingPopup(null);
+      setApprovalStep(prev => ({ ...prev, [sensorId]: null }));
+      alert('Transaction failed. Please try again.');
     }
   };
+
+  // Function to mint NFT after approval
+  const mintNFT = async (sensorId, sensorData) => {
+    const dataHash = sensorData.document_id;
+    
+    if (!dataHash) {
+      throw new Error('No document ID found for this sensor data');
+    }
+
+    setApprovalStep(prev => ({ ...prev, [sensorId]: 'minting' }));
+
+    // Call the mint function on the NFT contract with the document hash
+    writeContract({
+      address: NFT_CONTRACT_ADDRESS,
+      abi: NFT_CONTRACT_ABI,
+      functionName: 'mint',
+      args: [dataHash],
+    });
+  };
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && mintingPopup) {
+      const currentStep = approvalStep[mintingPopup];
+      
+      if (currentStep === 'approving') {
+        // Approval confirmed, now mint NFT
+        refetchAllowance(); // Refresh allowance data
+        const currentSensorData = sensorData?.find(s => `${s.gps_lat}-${s.gps_lng}` === mintingPopup);
+        if (currentSensorData) {
+          mintNFT(mintingPopup, currentSensorData);
+        }
+      } else if (currentStep === 'minting') {
+        // Minting confirmed, unlock popup
+        setUnlockedPopups(prev => new Set([...prev, mintingPopup]));
+        setMintingPopup(null);
+        setApprovalStep(prev => ({ ...prev, [mintingPopup]: null }));
+        alert('NFT minted successfully! Sensor data unlocked.');
+      }
+    }
+    
+    if (error && mintingPopup) {
+      setMintingPopup(null);
+      setApprovalStep(prev => ({ ...prev, [mintingPopup]: null }));
+      alert('Transaction failed: ' + (error.message || 'Unknown error'));
+    }
+  }, [isConfirmed, error, mintingPopup, approvalStep, refetchAllowance]);
 
   // Update the location handling useEffect
   useEffect(() => {
@@ -723,11 +869,15 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
           const results = await Promise.all(
             collections.map(collection => 
               axios.get(`/api/select?document_id=${collection?.collection_data?.latest_document}`, { headers })
+                .then(res => ({
+                  ...res.data.data,
+                  document_id: collection?.collection_data?.latest_document, // Add document_id to sensor data
+                  collection_name: collection?.collection_name // Also add collection name for reference
+                }))
             )
           );
 
           const sensorDataResults = results
-            .map(res => res.data.data)
             .filter(data => data?.gps_lat && data?.gps_lng);
 
           setSensorData(sensorDataResults);
@@ -872,6 +1022,12 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
                 unlockedPopups={unlockedPopups}
                 onUnlockPopup={handleUnlockPopup}
                 isConnected={isConnected}
+                mintingPopup={mintingPopup}
+                isPending={isPending}
+                isConfirming={isConfirming}
+                approvalStep={approvalStep}
+                tokenBalance={tokenBalance}
+                tokenAllowance={tokenAllowance}
               />
             </>
           )}
