@@ -11,6 +11,7 @@ import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useCallback } from 'react';
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI, AQI_TOKEN_ADDRESS, AQI_TOKEN_ABI, MINT_PRICE } from '../config/contract';
 
 
@@ -247,7 +248,7 @@ const isDataLive = (timestamp) => {
 };
 
 // Update the CustomMarker component to use the red sensor icon
-const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected, mintingPopup, isPending, isConfirming, approvalStep, tokenBalance, tokenAllowance, ownedNFTs }) => {
+const CustomMarker = ({ activeLayers, sensorData, isDarkMode, unlockedPopups, onUnlockPopup, isConnected, mintingPopup, isPending, isConfirming, approvalStep, tokenBalance, tokenAllowance, ownedNFTs }) => {
   if (!Array.isArray(sensorData) || sensorData.length === 0) return null;
 
   return (
@@ -264,6 +265,9 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
         // Check if user has enough tokens and approval status
         const hasEnoughTokens = tokenBalance && BigInt(tokenBalance) >= BigInt(MINT_PRICE || '0');
         const hasApproval = tokenAllowance && BigInt(tokenAllowance) >= BigInt(MINT_PRICE || '0');
+        
+        // Check if user owns NFT for this specific latest document
+        // Only unlock if the current sensor's latest document_id matches an owned NFT datahash
         const ownsNFT = ownedNFTs && ownedNFTs.has(sensor.document_id);
         
         return (
@@ -421,7 +425,7 @@ const CustomMarker = ({ position, activeLayers, sensorData, isDarkMode, unlocked
                                 <p className={`text-sm ${
                                   isDarkMode ? 'text-green-400' : 'text-green-600'
                                 }`}>
-                                  This sensor data is permanently unlocked for you.
+                                  You own the NFT for this latest sensor reading.
                                 </p>
                               </div>
                             ) : (
@@ -792,7 +796,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
   };
 
   // Function to mint NFT after approval
-  const mintNFT = async (sensorId, sensorData) => {
+  const mintNFT = useCallback(async (sensorId, sensorData) => {
     const dataHash = sensorData.document_id;
     
     if (!dataHash) {
@@ -808,31 +812,30 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       functionName: 'mint',
       args: [dataHash],
     });
-  };
+  }, [writeContract]);
 
   // Function to check NFT ownership for sensor data
-  const checkNFTOwnership = async (sensorDataArray) => {
+  const checkNFTOwnership = useCallback(async (sensorDataArray) => {
     if (!address || !sensorDataArray) return;
 
     try {
       const ownedDocuments = new Set();
+      const storedOwnership = localStorage.getItem(`nft_ownership_${address}`);
+      const ownedDatahashes = storedOwnership ? JSON.parse(storedOwnership) : [];
       
-      // For each sensor data, check if user owns an NFT with that document hash
+      // For each sensor data, check if user owns an NFT with the LATEST document hash
       for (const sensor of sensorDataArray) {
         if (sensor.document_id) {
           try {
-            // We'll use a different approach - check if the user has minted an NFT for this document
-            // Since we can't enumerate NFTs, we'll track ownership through successful minting
-            // For now, we'll implement a basic check using tokenURI if we know token IDs
+            // Only unlock if the current latest document matches an owned NFT datahash
+            const isOwned = ownedDatahashes.includes(sensor.document_id);
+            console.log(`🔍 Checking sensor at ${sensor.gps_lat},${sensor.gps_lng}:`);
+            console.log(`   Latest document: ${sensor.document_id}`);
+            console.log(`   Owned documents: ${JSON.stringify(ownedDatahashes)}`);
+            console.log(`   Match found: ${isOwned}`);
             
-            // Alternative approach: Check recent Transfer events or maintain a mapping
-            // For this implementation, we'll rely on the unlockedPopups state and localStorage
-            const storedOwnership = localStorage.getItem(`nft_ownership_${address}`);
-            if (storedOwnership) {
-              const owned = JSON.parse(storedOwnership);
-              if (owned.includes(sensor.document_id)) {
-                ownedDocuments.add(sensor.document_id);
-              }
+            if (isOwned) {
+              ownedDocuments.add(sensor.document_id);
             }
           } catch (error) {
             console.error('Error checking NFT ownership for document:', sensor.document_id, error);
@@ -842,20 +845,22 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       
       setOwnedNFTs(ownedDocuments);
       
-      // Auto-unlock popups for owned NFTs
+      // Auto-unlock popups ONLY for sensors where the latest document matches owned NFT
       const ownedSensorIds = sensorDataArray
         .filter(sensor => ownedDocuments.has(sensor.document_id))
         .map(sensor => `${sensor.gps_lat}-${sensor.gps_lng}`);
       
-      setUnlockedPopups(prev => new Set([...prev, ...ownedSensorIds]));
+      // IMPORTANT: Replace the unlocked popups entirely, don't merge with previous state
+      // This ensures that if sensor data changes, only currently owned documents remain unlocked
+      setUnlockedPopups(new Set(ownedSensorIds));
       
     } catch (error) {
       console.error('Error checking NFT ownership:', error);
     }
-  };
+  }, [address]);
 
   // Store NFT ownership when minting is successful
-  const storeNFTOwnership = (documentId) => {
+  const storeNFTOwnership = useCallback((documentId) => {
     if (!address || !documentId) return;
     
     try {
@@ -872,7 +877,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
     } catch (error) {
       console.error('Error storing NFT ownership:', error);
     }
-  };
+  }, [address]);
 
   // Handle transaction confirmation
   useEffect(() => {
@@ -893,10 +898,16 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
           storeNFTOwnership(currentSensorData.document_id);
         }
         
-        setUnlockedPopups(prev => new Set([...prev, mintingPopup]));
+        // The storeNFTOwnership above will trigger a re-check via useEffect
+        // No need to manually update unlockedPopups here - let checkNFTOwnership handle it
         setMintingPopup(null);
         setApprovalStep(prev => ({ ...prev, [mintingPopup]: null }));
         alert('NFT minted successfully! Sensor data unlocked.');
+        
+        // Trigger ownership re-check to update UI properly
+        if (sensorData) {
+          checkNFTOwnership(sensorData);
+        }
       }
     }
     
@@ -905,14 +916,20 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       setApprovalStep(prev => ({ ...prev, [mintingPopup]: null }));
       alert('Transaction failed: ' + (error.message || 'Unknown error'));
     }
-  }, [isConfirmed, error, mintingPopup, approvalStep, refetchAllowance]);
+  }, [isConfirmed, error, mintingPopup, approvalStep, refetchAllowance, sensorData, storeNFTOwnership, mintNFT]);
 
   // Check NFT ownership when sensor data loads or address changes
   useEffect(() => {
     if (sensorData && address) {
+      // Clear any stale unlocked state before checking ownership
+      setUnlockedPopups(new Set());
       checkNFTOwnership(sensorData);
+    } else if (!address) {
+      // Clear unlocked popups when wallet disconnects
+      setUnlockedPopups(new Set());
+      setOwnedNFTs(new Set());
     }
-  }, [sensorData, address]);
+  }, [sensorData, address, checkNFTOwnership]);
 
   // Update the location handling useEffect
   useEffect(() => {
@@ -1131,7 +1148,6 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
               
               {/* Pass sensorData to CustomMarker */}
               <CustomMarker 
-                position={userLocation} 
                 activeLayers={activeLayers} 
                 sensorData={sensorData}
                 isDarkMode={isDarkMode}
