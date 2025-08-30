@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,8 +10,7 @@ import {
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-import ChatBot from './ChatBot';
-import PincodeInput from './PincodeInput';
+
 
 // Add this before the component to fix pointer events
 if (L.Browser.pointer) {
@@ -207,24 +206,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // Distance in km
 };
 
-// Add this function to find the nearest sensor
-const findNearestSensor = (userLocation, sensors) => {
-  if (!userLocation || !sensors || sensors.length === 0) return null;
-  
-  return sensors.reduce((nearest, sensor) => {
-    const distance = calculateDistance(
-      userLocation[0],
-      userLocation[1],
-      sensor.gps_lat,
-      sensor.gps_lng
-    );
-    
-    if (!nearest || distance < nearest.distance) {
-      return { sensor, distance };
-    }
-    return nearest;
-  }, null)?.sensor;
-};
+
 
 // Update the getRelativeTime function to remove console.log
 const getRelativeTime = (timestamp) => {
@@ -556,8 +538,6 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
   const [locationError, setLocationError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sensorData, setSensorData] = useState(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [showPincodeInput, setShowPincodeInput] = useState(false);
 
   // Update the location handling useEffect
   useEffect(() => {
@@ -566,7 +546,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       setLocationError(null);
 
       if (!navigator.geolocation) {
-        setShowPincodeInput(true);
+        setLocationError('Geolocation is not supported by this browser.');
         setIsLoading(false);
         return;
       }
@@ -575,7 +555,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
       if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(result => {
           if (result.state === 'denied') {
-            setShowPincodeInput(true);
+            setLocationError('Location access denied. Please enable location services.');
             setIsLoading(false);
             return;
           }
@@ -604,8 +584,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
         },
         (error) => {
           console.error('Geolocation error:', error);
-          // Show pincode input when permission is denied or any other error occurs
-          setShowPincodeInput(true);
+          setLocationError('Unable to get your location. Please enable location services.');
           setIsLoading(false);
         },
         options
@@ -695,17 +674,8 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
     }
   };
 
-  const handlePincodeSubmit = (location) => {
-    setUserLocation(location);
-    setShowPincodeInput(false);
-  };
-
   if (isLoading) {
     return <LoadingSpinner />;
-  }
-
-  if (showPincodeInput) {
-    return <PincodeInput onPincodeSubmit={handlePincodeSubmit} isDarkMode={isDarkMode} />;
   }
 
   if (locationError) {
@@ -796,31 +766,6 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
 
       {/* Fixed Position Buttons */}
       <div className="fixed-buttons">
-        {/* Chat Button */}
-        <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`rounded-lg ${
-            isDarkMode 
-              ? 'bg-gray-800 hover:bg-gray-700' 
-              : 'bg-white hover:bg-gray-100'
-          } text-blue-500`}
-          title="Chat with AI"
-        >
-          <svg 
-            className="w-5 h-5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-        </button>
-
         {/* Location Button */}
         <button
           onClick={() => {
@@ -837,7 +782,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
                     });
                   }
                 },
-                (error) => {
+                () => {
                   setLocationError('Unable to get your location. Please enable location services.');
                 },
                 {
@@ -875,38 +820,7 @@ const MapComponent = ({ activeLayers, isDarkMode }) => {
             />
           </svg>
         </button>
-
-        {/* Add this button */}
-        <button
-          onClick={() => setShowPincodeInput(true)}
-          className={`rounded-lg ${
-            isDarkMode 
-              ? 'bg-gray-800 hover:bg-gray-700' 
-              : 'bg-white hover:bg-gray-100'
-          } text-blue-500`}
-          title="Enter Pincode"
-        >
-          <svg 
-            className="w-5 h-5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-            />
-          </svg>
-        </button>
       </div>
-
-      <ChatBot 
-        isDarkMode={isDarkMode} 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-      />
     </div>
   );
 };

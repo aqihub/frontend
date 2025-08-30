@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useTimeBasedTheme } from "../hooks/useTimeBasedTheme"
 
 const Header = () => {
@@ -40,10 +40,7 @@ const Header = () => {
             </div>
           </div>
 
-          {
-            location.pathname === '/leaderboard' ? <Link to="/" className={`block py-2 px-4 font-medium rounded bg-blue-500 text-white`}>Dashboard</Link> : <Link to="/leaderboard" className="block py-2 px-4 font-medium rounded bg-blue-500 text-white">Leaderboard</Link>
-          }
-          {/* <Link to="/leaderboard" className={`block py-2 px-4 font-medium rounded ${location.pathname === '/leaderboard' ? 'bg-blue-500 text-white' : 'bg-blue-200 hover:bg-blue-300'}`}>Leaderboard</Link> */}
+          <ConnectButton />
         </div>
       </div>
     </header>
