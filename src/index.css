@@ -1,0 +1,316 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply m-0 p-0 overflow-hidden;
+}
+
+#root {
+  @apply h-screen w-screen;
+}
+
+.leaflet-container {
+  @apply w-full h-full font-sans;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply !rounded-xl !shadow-xl backdrop-blur-sm;
+}
+
+.leaflet-popup-content {
+  @apply !m-0;
+  width: 350px !important;
+}
+
+.leaflet-popup {
+  @apply !z-[1002];
+}
+
+.leaflet-control-container {
+  @apply !z-[999];
+}
+
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  @apply !pointer-events-auto;
+}
+
+.leaflet-interactive {
+  @apply cursor-pointer;
+}
+
+/* .dark .leaflet-tile-pane {
+  @apply !brightness-[0.85];
+} */
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  @apply !bg-gray-800/95 !text-white;
+}
+
+/* Add this to hide Leaflet's default close button */
+.leaflet-popup-close-button {
+  @apply !hidden;
+}
+
+.data-layer-btn {
+  position: absolute;
+  right: 0px;
+  top: -10px;
+}
+
+.combined-legends {
+  position: absolute;
+  z-index: 10000;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.leaflet-marker-icon {
+  pointer-events: auto !important;
+}
+
+.leaflet-marker-shadow {
+  display: none !important;
+}
+
+.location-marker {
+  z-index: 1000 !important;
+}
+
+.sensor-marker {
+  z-index: 998 !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Ensure proper z-index layering */
+.leaflet-marker-pane {
+  z-index: 600 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 700 !important;
+}
+
+/* Add these styles at the end of your index.css file */
+.leaflet-marker-icon {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.leaflet-marker-shadow {
+  display: none !important;
+}
+
+.location-marker {
+  z-index: 9999 !important;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.sensor-marker {
+  z-index: 998 !important;
+}
+
+/* Override any default Leaflet styles */
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+.leaflet-popup-pane {
+  z-index: 700;
+}
+
+/* Ensure markers are always on top */
+.leaflet-marker-icon.location-marker {
+  z-index: 9999 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Remove any default Leaflet shadows */
+.leaflet-shadow-pane {
+  display: none !important;
+}
+
+/* Remove all previous marker-related styles and add only these */
+.current-location-marker {
+  z-index: 9999 !important;
+}
+
+.leaflet-marker-icon {
+  pointer-events: auto !important;
+}
+
+.leaflet-marker-shadow {
+  display: none !important;
+}
+
+/* Override default Leaflet styles */
+.leaflet-div-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+.leaflet-popup-pane {
+  z-index: 700;
+}
+
+/* Clean up existing marker styles and add these */
+.custom-location-marker {
+  background: none !important;
+  border: none !important;
+  z-index: 1000 !important;
+}
+
+.marker-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  background: #3b82f6;
+  position: absolute;
+  transform: rotate(-45deg);
+  left: 50%;
+  top: 50%;
+  margin: -15px 0 0 -15px;
+}
+
+.marker-pin-inner {
+  background: #fff;
+  width: 14px;
+  height: 14px;
+  margin: 8px 0 0 8px;
+  position: absolute;
+  border-radius: 50%;
+}
+
+/* Ensure proper z-index */
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+.leaflet-popup-pane {
+  z-index: 700;
+}
+
+/* Remove shadows */
+.leaflet-shadow-pane {
+  display: none;
+}
+
+/* Add these styles at the end of the file */
+.location-pulse-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.pulse-circle {
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(59, 130, 246, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* Remove any existing marker-pin related styles */
+.marker-pin,
+.marker-pin-inner {
+  display: none;
+}
+
+/* Update the control buttons positioning with more spacing */
+.leaflet-control-zoom {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 40px !important;
+  left: auto !important;
+  top: auto !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Style for the fixed position buttons container */
+.fixed-buttons {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 140px !important;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Individual button styles */
+.fixed-buttons button {
+  @apply shadow-lg transition-all duration-200;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+}
+
+.fixed-buttons button:hover {
+  @apply shadow-xl transform scale-105;
+}
+
+/* Zoom control buttons */
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  @apply !bg-white dark:!bg-gray-800 !text-gray-700 dark:!text-gray-200 hover:!bg-gray-100 dark:hover:!bg-gray-700 !border-gray-200 dark:!border-gray-700;
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+}
+
+/* Remove any conflicting location button styles */
+.location-button {
+  display: none !important;
+}
